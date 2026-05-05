@@ -5,6 +5,9 @@ public class Project3 {
 
     // constants used for block sizing and file validation
     static final int BLOCK_SIZE = 512;
+    static final int T = 10;
+    static final int MAX_KEYS = 19;
+    static final int MAX_CHILDREN = 20;
     static final String MAGIC = "4348PRJ3";
 
     public static void main(String[] args) {
@@ -26,6 +29,34 @@ public class Project3 {
 
                 case "create":
                     createIndex(file);
+                    break;
+
+                // handles searching for a key inside the index file
+                case "search":
+
+                    // opens the existing b-tree index file
+                    BTree tree =
+                            new BTree(file);
+
+                    // converts the command-line argument into a numeric key
+                    long key =
+                            Long.parseLong(args[2]);
+
+                    // searches the b-tree for the requested key
+                    long value =
+                            tree.search(key);
+
+                    // prints an error if the key does not exist
+                    if (value == -1) {
+                        System.out.println("Key not found");
+                    }
+
+                    // prints the matching key/value pair if found
+                    else {
+                        System.out.println(
+                                key + "," + value);
+                    }
+
                     break;
 
                 default:
@@ -85,5 +116,21 @@ public class Project3 {
 
             value >>= 8;
         }
+    }
+
+    static long readLong(byte[] arr,
+                         int offset) {
+
+        // reconstructs a 64-bit integer from big-endian bytes
+        long value = 0;
+
+        for (int i = 0; i < 8; i++) {
+
+            value =
+                    (value << 8)
+                    | (arr[offset + i] & 0xffL);
+        }
+
+        return value;
     }
 }
