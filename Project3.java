@@ -31,6 +31,27 @@ public class Project3 {
                     createIndex(file);
                     break;
 
+                // handles insertion of a key/value pair into the index
+                case "insert":
+
+                    BTree treeInsert =
+                            new BTree(file);
+
+                    long insertKey =
+                            Long.parseLong(args[2]);
+
+                    long insertValue =
+                            Long.parseLong(args[3]);
+
+                    treeInsert.insert(
+                            insertKey,
+                            insertValue);
+
+                    System.out.println(
+                            "Inserted");
+
+                    break;
+
                 // handles searching for a key inside the index file
                 case "search":
 

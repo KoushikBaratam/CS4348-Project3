@@ -136,6 +136,86 @@ public class BTree {
         return node;
     }
 
+    void writeNode(Node node)
+            throws Exception {
+
+        // creates a block buffer for node serialization
+        byte[] block =
+                new byte[BLOCK_SIZE];
+
+        // stores node metadata into the block
+        writeLong(block, 0, node.blockId);
+        writeLong(block, 8, node.parentId);
+        writeLong(block, 16, node.numKeys);
+
+        int offset = 24;
+
+        // writes all node keys into the block
+        for (int i = 0;
+             i < MAX_KEYS;
+             i++) {
+
+            writeLong(
+                    block,
+                    offset,
+                    node.keys[i]);
+
+            offset += 8;
+        }
+
+        // writes all node values into the block
+        for (int i = 0;
+             i < MAX_KEYS;
+             i++) {
+
+            writeLong(
+                    block,
+                    offset,
+                    node.values[i]);
+
+            offset += 8;
+        }
+
+        // writes all child pointers into the block
+        for (int i = 0;
+             i < MAX_CHILDREN;
+             i++) {
+
+            writeLong(
+                    block,
+                    offset,
+                    node.children[i]);
+
+            offset += 8;
+        }
+
+        // writes the serialized node block to disk
+        file.seek(node.blockId * BLOCK_SIZE);
+        file.write(block);
+    }
+
+    Node allocateNode(long parentId)
+            throws Exception {
+
+        // creates a new empty node
+        Node node = new Node();
+
+        node.blockId =
+                nextBlockId;
+
+        nextBlockId++;
+
+        node.parentId =
+                parentId;
+
+        node.numKeys = 0;
+
+        // saves the new node immediately
+        writeNode(node);
+
+        return node;
+    }
+
     long search(long key)
             throws Exception {
 
@@ -183,6 +263,230 @@ public class BTree {
         return searchRecursive(
                 node.children[i],
                 key);
+    }
+
+    void insert(long key,
+                long value)
+            throws Exception {
+
+        // creates the root node if the tree is empty
+        if (rootId == 0) {
+
+            Node root =
+                    allocateNode(0);
+
+            root.keys[0] = key;
+            root.values[0] = value;
+            root.numKeys = 1;
+
+            rootId =
+                    root.blockId;
+
+            writeNode(root);
+
+            return;
+        }
+
+        // loads the current root node
+        Node root =
+                readNode(rootId);
+
+        // splits the root if it is full
+        if (root.numKeys == MAX_KEYS) {
+
+            Node newRoot =
+                    allocateNode(0);
+
+            root.parentId =
+                    newRoot.blockId;
+
+            newRoot.children[0] =
+                    root.blockId;
+
+            rootId =
+                    newRoot.blockId;
+
+            writeNode(root);
+
+            splitChild(
+                    newRoot,
+                    0,
+                    root);
+
+            insertNonFull(
+                    newRoot,
+                    key,
+                    value);
+        }
+
+        // inserts directly if the root is not full
+        else {
+
+            insertNonFull(
+                    root,
+                    key,
+                    value);
+        }
+    }
+
+    void insertNonFull(Node node,
+                       long key,
+                       long value)
+            throws Exception {
+
+        int i =
+                node.numKeys - 1;
+
+        // inserts directly into a leaf node
+        if (node.children[0] == 0) {
+
+            while (i >= 0
+                    && key < node.keys[i]) {
+
+                node.keys[i + 1] =
+                        node.keys[i];
+
+                node.values[i + 1] =
+                        node.values[i];
+
+                i--;
+            }
+
+            node.keys[i + 1] = key;
+            node.values[i + 1] = value;
+
+            node.numKeys++;
+
+            writeNode(node);
+        }
+
+        // recursively inserts into the correct child
+        else {
+
+            while (i >= 0
+                    && key < node.keys[i]) {
+
+                i--;
+            }
+
+            i++;
+
+            Node child =
+                    readNode(
+                            node.children[i]);
+
+            // splits the child if it is full
+            if (child.numKeys == MAX_KEYS) {
+
+                splitChild(
+                        node,
+                        i,
+                        child);
+
+                if (key > node.keys[i]) {
+                    i++;
+                }
+            }
+
+            child =
+                    readNode(
+                            node.children[i]);
+
+            insertNonFull(
+                    child,
+                    key,
+                    value);
+        }
+    }
+
+    void splitChild(Node parent,
+                    int index,
+                    Node child)
+            throws Exception {
+
+        // creates a new node for the split
+        Node newNode =
+                allocateNode(
+                        parent.blockId);
+
+        newNode.numKeys =
+                T - 1;
+
+        // copies upper half keys and values
+        for (int j = 0;
+             j < T - 1;
+             j++) {
+
+            newNode.keys[j] =
+                    child.keys[j + T];
+
+            newNode.values[j] =
+                    child.values[j + T];
+        }
+
+        // copies child pointers if the node is internal
+        for (int j = 0;
+             j < T;
+             j++) {
+
+            newNode.children[j] =
+                    child.children[j + T];
+        }
+
+        child.numKeys =
+                T - 1;
+
+        // shifts parent child pointers
+        for (int j = parent.numKeys;
+             j >= index + 1;
+             j--) {
+
+            parent.children[j + 1] =
+                    parent.children[j];
+        }
+
+        parent.children[index + 1] =
+                newNode.blockId;
+
+        // shifts parent keys and values
+        for (int j = parent.numKeys - 1;
+             j >= index;
+             j--) {
+
+            parent.keys[j + 1] =
+                    parent.keys[j];
+
+            parent.values[j + 1] =
+                    parent.values[j];
+        }
+
+        // promotes the median key into the parent
+        parent.keys[index] =
+                child.keys[T - 1];
+
+        parent.values[index] =
+                child.values[T - 1];
+
+        parent.numKeys++;
+
+        // saves all modified nodes to disk
+        writeNode(child);
+        writeNode(newNode);
+        writeNode(parent);
+    }
+
+    void writeLong(byte[] arr,
+                   int offset,
+                   long value) {
+
+        // writes a 64-bit integer into the byte array using big-endian order
+        for (int i = 7; i >= 0; i--) {
+
+            arr[offset + i] =
+                    (byte)(value & 0xff);
+
+            value >>= 8;
+        }
     }
 
     long readLong(byte[] arr,
