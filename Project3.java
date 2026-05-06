@@ -55,28 +55,63 @@ public class Project3 {
                 // handles searching for a key inside the index file
                 case "search":
 
-                    // opens the existing b-tree index file
                     BTree tree =
                             new BTree(file);
 
-                    // converts the command-line argument into a numeric key
                     long key =
                             Long.parseLong(args[2]);
 
-                    // searches the b-tree for the requested key
                     long value =
                             tree.search(key);
 
-                    // prints an error if the key does not exist
                     if (value == -1) {
                         System.out.println("Key not found");
                     }
 
-                    // prints the matching key/value pair if found
                     else {
                         System.out.println(
                                 key + "," + value);
                     }
+
+                    break;
+
+                // loads key/value pairs from a csv file
+                case "load":
+
+                    BTree loadTree =
+                            new BTree(file);
+
+                    loadCsv(
+                            loadTree,
+                            args[2]);
+
+                    System.out.println(
+                            "CSV loaded");
+
+                    break;
+
+                // prints all key/value pairs in sorted order
+                case "print":
+
+                    BTree printTree =
+                            new BTree(file);
+
+                    printTree.printAll();
+
+                    break;
+
+                // extracts all key/value pairs into a csv file
+                case "extract":
+
+                    BTree extractTree =
+                            new BTree(file);
+
+                    extractCsv(
+                            extractTree,
+                            args[2]);
+
+                    System.out.println(
+                            "CSV extracted");
 
                     break;
 
@@ -123,6 +158,50 @@ public class Project3 {
         raf.close();
 
         System.out.println("Index created");
+    }
+
+    static void loadCsv(BTree tree,
+                        String csvFile)
+            throws Exception {
+
+        // opens the csv input file for reading
+        BufferedReader reader =
+                new BufferedReader(
+                        new FileReader(csvFile));
+
+        String line;
+
+        // reads and inserts each key/value pair
+        while ((line = reader.readLine()) != null) {
+
+            String[] parts =
+                    line.split(",");
+
+            long key =
+                    Long.parseLong(parts[0]);
+
+            long value =
+                    Long.parseLong(parts[1]);
+
+            tree.insert(key, value);
+        }
+
+        reader.close();
+    }
+
+    static void extractCsv(BTree tree,
+                           String csvFile)
+            throws Exception {
+
+        // creates a writer for csv extraction
+        PrintWriter writer =
+                new PrintWriter(
+                        new FileWriter(csvFile));
+
+        // writes all tree contents into the csv file
+        tree.extractAll(writer);
+
+        writer.close();
     }
 
     static void writeLong(byte[] arr,

@@ -143,7 +143,6 @@ public class BTree {
         byte[] block =
                 new byte[BLOCK_SIZE];
 
-        // stores node metadata into the block
         writeLong(block, 0, node.blockId);
         writeLong(block, 8, node.parentId);
         writeLong(block, 16, node.numKeys);
@@ -155,8 +154,7 @@ public class BTree {
              i < MAX_KEYS;
              i++) {
 
-            writeLong(
-                    block,
+            writeLong(block,
                     offset,
                     node.keys[i]);
 
@@ -168,8 +166,7 @@ public class BTree {
              i < MAX_KEYS;
              i++) {
 
-            writeLong(
-                    block,
+            writeLong(block,
                     offset,
                     node.values[i]);
 
@@ -181,15 +178,14 @@ public class BTree {
              i < MAX_CHILDREN;
              i++) {
 
-            writeLong(
-                    block,
+            writeLong(block,
                     offset,
                     node.children[i]);
 
             offset += 8;
         }
 
-        // writes the serialized node block to disk
+        // saves the node block to disk
         file.seek(node.blockId * BLOCK_SIZE);
         file.write(block);
     }
@@ -210,7 +206,6 @@ public class BTree {
 
         node.numKeys = 0;
 
-        // saves the new node immediately
         writeNode(node);
 
         return node;
@@ -224,7 +219,6 @@ public class BTree {
             return -1;
         }
 
-        // begins recursive traversal from the root node
         return searchRecursive(
                 rootId,
                 key);
@@ -259,7 +253,6 @@ public class BTree {
             return -1;
         }
 
-        // recursively continues searching in the correct child subtree
         return searchRecursive(
                 node.children[i],
                 key);
@@ -287,7 +280,6 @@ public class BTree {
             return;
         }
 
-        // loads the current root node
         Node root =
                 readNode(rootId);
 
@@ -319,7 +311,6 @@ public class BTree {
                     value);
         }
 
-        // inserts directly if the root is not full
         else {
 
             insertNonFull(
@@ -469,10 +460,92 @@ public class BTree {
 
         parent.numKeys++;
 
-        // saves all modified nodes to disk
         writeNode(child);
         writeNode(newNode);
         writeNode(parent);
+    }
+
+    void printAll()
+            throws Exception {
+
+        // prints all entries in sorted order
+        if (rootId != 0) {
+            printRecursive(rootId);
+        }
+    }
+
+    void printRecursive(long nodeId)
+            throws Exception {
+
+        // performs inorder traversal of the b-tree
+        Node node =
+                readNode(nodeId);
+
+        for (int i = 0;
+             i < node.numKeys;
+             i++) {
+
+            if (node.children[i] != 0) {
+
+                printRecursive(
+                        node.children[i]);
+            }
+
+            System.out.println(
+                    node.keys[i]
+                    + ","
+                    + node.values[i]);
+        }
+
+        if (node.children[node.numKeys] != 0) {
+
+            printRecursive(
+                    node.children[node.numKeys]);
+        }
+    }
+
+    void extractAll(PrintWriter writer)
+            throws Exception {
+
+        // extracts all entries into a csv file
+        if (rootId != 0) {
+            extractRecursive(
+                    rootId,
+                    writer);
+        }
+    }
+
+    void extractRecursive(long nodeId,
+                          PrintWriter writer)
+            throws Exception {
+
+        // performs inorder traversal for csv extraction
+        Node node =
+                readNode(nodeId);
+
+        for (int i = 0;
+             i < node.numKeys;
+             i++) {
+
+            if (node.children[i] != 0) {
+
+                extractRecursive(
+                        node.children[i],
+                        writer);
+            }
+
+            writer.println(
+                    node.keys[i]
+                    + ","
+                    + node.values[i]);
+        }
+
+        if (node.children[node.numKeys] != 0) {
+
+            extractRecursive(
+                    node.children[node.numKeys],
+                    writer);
+        }
     }
 
     void writeLong(byte[] arr,
